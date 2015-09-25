@@ -1,0 +1,70 @@
+- hosts: goji_server
+  vars:
+    go_lang_version: 1.5.1
+    go_lang_url: https://storage.googleapis.com/golang/go{{ go_lang_version }}.linux-amd64.tar.gz
+    user: vagrant
+    home: /home/{{ user }}/
+  tasks:
+    - name: ubuntu14.04 set dns
+      shell: |
+        sudo sh -c "echo 'nameserver 8.8.8.8' >> /etc/resolvconf/resolv.conf.d/base"
+        sudo resolvconf -u
+    - name: go_lang_download
+      get_url:
+        url: "{{ go_lang_url }}"
+        dest: "{{ home }}"
+      tags: go_install
+
+    - name: Breaking Go symlink
+      file:
+       path: /usr/local/go
+       state: absent
+
+    - name: unarchive
+#      unarchive:
+#        src: "{{ home }}go{{ go_lang_version }}.linux-amd64.tar.gz"
+#        dest: /usr/local
+      command: sudo /bin/tar -C /usr/local -zxf {{ home }}go{{ go_lang_version }}.linux-amd64.tar.gz
+      tags: go_install
+
+#    - name: Rename Go Installation
+#      command: mv /usr/local/go /usr/local/go-{{ go_lang_version }}
+
+#    - name: Setup Symlink to newly installed version of Go
+#      file:
+#       src: /usr/local/go-{{ go_lang_version }}
+#       dest: /usr/local/go
+#       state: link
+
+    - name: Update PATH
+      lineinfile:
+        dest: "{{ home }}.bashrc"
+        line: "export PATH=$PATH:/usr/local/go/bin"
+        regexp: "go/bin"
+        insertafter: EOF
+        state: present
+        create: False
+      tags: update_path
+
+    - name: Configure GOPATH
+      lineinfile:
+        dest: "{{ home }}.bashrc"
+        line: "export GOPATH=$HOME/go"
+        regexp: "$HOME/go"
+        insertafter: EOF
+        state: present
+        create: False
+      tags: update_path
+
+    - name: restart .bashrc
+      shell: |
+        . {{ home }}.bashrc
+      tags: update_path
+
+#    - name : rewrite .bashrc
+#      shell: |
+#        echo export GOROOT=/usr/local/go >> {{ home }}/.bashrc
+#        echo export GOPATH=$HOME/go >> {{ home }}/.bashrc
+#        echo "export PATH=$PATH:$GOROOT/bin:$GOPATH/bin" >> {{ home }}/.bashrc
+#        . {{ home }}.bashrc
+#      tags: go_install
